@@ -1,20 +1,10 @@
-#Instalação das bibliotecas necessárias
-get_ipython().system('pip install python-dotenv #Biblioteca para manipulação de variáveis de ambiente')
-
-get_ipython().system('pip install yfinance==0.2.41')
-get_ipython().system('pip install crewai==0.28.8')
-get_ipython().system("pip install 'crewai[tools]'")
-get_ipython().system('pip install langchain==0.1.20')
-get_ipython().system('pip install langchain-openai==0.1.7')
-get_ipython().system('pip install langchain-community==0.0.38')
-get_ipython().system('pip install duckduckgo-search==5.3.0')
-
 # Importação das bibliotecas necessárias
 import json 
 import os
 from datetime import datetime
 
 import yfinance as yf
+import streamlit as st
 
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process
@@ -24,7 +14,7 @@ from langchain_community.tools import DuckDuckGoSearchResults
 
 # Função para coletar os dados do Yahoo Finance
 def fectch_stock_history_price(ticket):
-    stock = yf.download(ticket, start="2020-01-01", end="2020-12-31")
+    stock = yf.download(ticket, start="2023-01-01", end="2023-12-31")
     return stock
 
 # Criação da ferramenta para coletar os dados do Yahoo Finance
@@ -36,7 +26,7 @@ yahoo_finance_tool = Tool(
 
 # Criação do modelo de LLM usando OpenAI
 load_dotenv() # Carrega as variáveis de ambiente
-os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
+os.environ['OPENAI_API_KEY'] = st.secrets['OPENAI_API_KEY']
 llm = ChatOpenAI(model="gpt-3.5-turbo")
 
 # Criação do Agente que irá analisar os preços das ações
@@ -142,12 +132,22 @@ crew = Crew(
   full_output = True,
   share_crew = False,
   manager_llm = llm,
-  max_iter = 15
+  max_iter = 15,
   )
 
-results = crew.kickoff(inputs={"ticket": "AAPL"})
+with st.sidebar:
+    st.title("CrewAI Stocks")
+    st.subheader("Welcome to CrewAI Stocks! Here you can analyze the stock prices and news to predict future trends and write a newsletter about it.")
+    st.write("Enter the Stock to Research")
 
-list(results.keys())
+    with st.form(key='research_form'):
+        topic = st.text_input("Select the ticket")
+        submit_button = st.form_submit_button(label='Run Research')
 
-Markdown(results['final_output'])
-
+if submit_button:
+    if not topic:
+      st.error("Please fill the ticket field.")
+    else:
+      result = crew.kickoff(inputs={"ticket": topic})
+      st.subheader("The analysis is complete! Here is the newsletter:")
+      st.write(result['final_output'])
